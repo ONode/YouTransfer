@@ -1,3 +1,4 @@
+'use strict';
 
 // ------------------------------------------------------------------------------------------ Test Dependencies
 
@@ -85,6 +86,14 @@ describe('YouTransfer Scheduler module', function() {
 		scheduler.clear();
 		var schedule = scheduler.get(name);
 		should.not.exist(schedule);
+	});
+
+	it('should not be possible to clear an existing schedule if it does not exist', function() {
+		scheduler.add(name, cron, job);
+		scheduler.clear('othername');
+		var schedule = scheduler.get(name);
+		should.exist(schedule);
+		scheduler.clear();
 	});
 
 	it('should be possible to clear existing schedules', function() {

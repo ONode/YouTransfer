@@ -2,12 +2,13 @@
 /*// ------------------------------------------------------------------------------------------ Homepage */
 
 .hp {
+	position: relative;
 	margin: 40px 5px 80px 5px;
 	min-height: 450px;
 	background-color: #fff;
 }
 
-.hp::after, 
+.hp::after,
 .hp::before {
     content: " ";
     display: table;
@@ -19,6 +20,36 @@
 
 .hp header {
 	margin-bottom: 20px;
+}
+
+.hp .profile {
+	position: absolute; 
+	top: 20px; 
+	right: 20px; 
+}
+
+.hp .profile.dropdown {
+	overflow: hidden;
+}
+
+.hp .profile.dropdown:hover {
+	height: auto;
+	overflow: visible;
+}
+
+.hp .profile.dropdown .dropdown-menu {
+	display: block;
+}
+
+.hp .profile img {
+	border: 0.5px solid #ccc; 
+	height: 64px; 
+	width: 64px; 
+	border-radius: 50px;
+}
+
+.hp .profile .dropdown-menu {
+	left: -94px;
 }
 
 @media (min-width: @screen-md-min) {
@@ -69,9 +100,9 @@
 	border-top: 1px solid #ddd;
 }
 
-/* 	
-Visual feedback for non-javascript users. 
-Unfortunately IE only supports :valid psuedo selectors on input elements.
+/*
+Visual feedback for non-javascript users.
+Unfortunately IE only supports :valid pseudo selectors on input elements.
 For those users the experience will be less intuitive.
 */
 
@@ -100,7 +131,7 @@ For those users the experience will be less intuitive.
 }
 
 .hp .fallback form label {
-	margin-bottom: 0;	
+	margin-bottom: 0;
 }
 
 /*// ------------------------------------------------------------------------------------------ Download */
@@ -129,7 +160,7 @@ For those users the experience will be less intuitive.
 	border-radius: 4px;
 }
 
-.settings::after, 
+.settings::after,
 .settings::before {
     content: " ";
     display: table;

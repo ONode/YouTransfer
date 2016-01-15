@@ -1,14 +1,18 @@
+'use strict';
 
 // ------------------------------------------------------------------------------------------ Test Dependencies
 
+var _ = require('lodash');
 var sinon = require('sinon');
 var should = require('chai').should();
-var filesize = require("filesize");
+var filesize = require('filesize');
 var path = require('path');
+var SHA256 = require('crypto-js/sha256');
 var youtransfer = require('../../lib/youtransfer');
 
 // ------------------------------------------------------------------------------------------ Mock Dependencies
 
+var fs = require('fs');
 var scheduler = require('../../lib/scheduler');
 var nodemailer = require('nodemailer');
 
@@ -30,10 +34,19 @@ describe('YouTransfer module', function() {
 	it('should be possible to initialize module (incl. scheduling of background jobs)', function(done) {
 
 		var settings = {
-			schedulerEnabled: true,
-			cleanupSchedule: 'cronschedule',
+			general: {
+				schedulerEnabled: true,
+				cleanupSchedule: 'cronschedule'
+			},
+			security: {
+				encryptionKey: 'MySecretKey'
+			},
 			on: function() {}
 		}
+
+		var logMock = sandbox.mock(youtransfer.log);
+		logMock.expects('info').once().withArgs('Scheduled cleanup of expired files');
+		logMock.expects('info').once().withArgs('(Re)scheduled cleanup of expired files');
 
 		sandbox.stub(youtransfer.settings, "get", function(callback) {
 			callback(null, settings);
@@ -45,22 +58,187 @@ describe('YouTransfer module', function() {
 
 		sandbox.stub(scheduler, "add", function(name, schedule, job) {
 			name.should.equals('cleanup');
-			schedule.should.equals(settings.cleanupSchedule);
+			schedule.should.equals(settings.general.cleanupSchedule);
 			should.exist(job);
 		});
 
 		sandbox.stub(scheduler, "reschedule", function(name, schedule, job) {
 			name.should.equals('cleanup');
-			schedule.should.equals(settings.cleanupSchedule);
+			schedule.should.equals(settings.general.cleanupSchedule);
 			should.exist(job);
+			logMock.verify();
 			done();
 		});
 
 		youtransfer.initialize();
 	});
 
-	it('should continue if an error occurs while initializing module', function() {
+	it('should be possible to initialize module (incl. scheduling of background jobs) and reschedule jobs when updating settings', function(done) {
+
+		var settings = {
+			general: {
+				schedulerEnabled: true,
+				cleanupSchedule: 'cronschedule'
+			},
+			security: {
+				encryptionKey: 'MySecretKey'
+			},
+			on: function() {}
+		}
+
+		var logMock = sandbox.mock(youtransfer.log);
+		logMock.expects('info').once().withArgs('Scheduled cleanup of expired files');
+		logMock.expects('info').once().withArgs('Disabled cleanup schedule');
+
 		sandbox.stub(youtransfer.settings, "get", function(callback) {
+			callback(null, settings);
+		});
+
+		sandbox.stub(youtransfer.settings, "on", function(event, callback) {
+			callback(null, {
+				general: {
+					schedulerEnabled: false
+				}
+			});
+		});
+
+		sandbox.stub(scheduler, "add", function(name, schedule, job) {
+			name.should.equals('cleanup');
+			schedule.should.equals(settings.general.cleanupSchedule);
+			should.exist(job);
+		});
+
+		sandbox.stub(scheduler, "remove", function(name) {
+			name.should.equals('cleanup');
+			logMock.verify();
+			done();
+		});
+
+		youtransfer.initialize();
+	});
+
+	it('should be possible to initialize module (incl. scheduling of background jobs) even when scheduler is disabled', function() {
+
+		var settings = {
+			general: {
+				schedulerEnabled: false,
+			},
+			security: {
+				encryptionKey: 'MySecretKey'
+			}
+		}
+
+		sandbox.stub(youtransfer.settings, "get", function(callback) {
+			callback(null, settings);
+		});
+
+		youtransfer.initialize();
+	});
+
+	it('should continue if an error occurs while initializing module', function() {
+		sandbox.stub(youtransfer.settings, "get", function (callback) {
+			callback(new Error('error'), null);
+		});
+
+		youtransfer.initialize();
+	});
+	
+	it('should be possible to initialize module (incl. scheduling of background jobs) without pre-set encryption key', function(done) {
+
+		var settings = {
+			general: {
+				schedulerEnabled: true,
+				cleanupSchedule: 'cronschedule'
+			},
+			security: {},
+			on: function() {}
+		}
+
+		var completed = _.after(2, done);
+
+		// Prevent log messages during test
+		sandbox.stub(youtransfer.log, 'info');
+
+		sandbox.stub(youtransfer.settings, "get", function (callback) {
+			callback(null, settings);
+		});
+
+		sandbox.stub(youtransfer.settings, "push", function (settings, callback) {
+			settings.security.encryptionKeyMethod.should.equals('auto');
+			callback(null);
+			completed();
+		});
+
+		sandbox.stub(youtransfer.settings, "on", function (event, callback) {
+			callback(null, settings);
+		});
+
+		sandbox.stub(scheduler, "add", function (name, schedule, job) {
+			name.should.equals('cleanup');
+			schedule.should.equals(settings.general.cleanupSchedule);
+			should.exist(job);
+		});
+
+		sandbox.stub(scheduler, "reschedule", function (name, schedule, job) {
+			name.should.equals('cleanup');
+			schedule.should.equals(settings.general.cleanupSchedule);
+			should.exist(job);
+			completed();
+		});
+
+		youtransfer.initialize();
+	});
+
+	it('should throw an error when such occurs during initialization of the module (incl. scheduling of background jobs) without pre-set encryption key', function(done) {
+
+		var settings = {
+			general: {
+				schedulerEnabled: true,
+				cleanupSchedule: 'cronschedule'
+			},
+			security: {},
+			on: function() {}
+		}
+
+		// Prevent log messages during test
+		sandbox.stub(youtransfer.log, 'info');
+
+		sandbox.stub(youtransfer.settings, "get", function (callback) {
+			callback(null, settings);
+		});
+
+		sandbox.stub(youtransfer.settings, "push", function (settings, callback) {
+			callback(new Error('error'));
+		});
+
+		sandbox.stub(youtransfer.settings, "on", function (event, callback) {
+			callback(null, settings);
+		});
+
+		sandbox.stub(scheduler, "add", function (name, schedule, job) {
+			name.should.equals('cleanup');
+			schedule.should.equals(settings.general.cleanupSchedule);
+			should.exist(job);
+		});
+
+		sandbox.stub(scheduler, "reschedule", function (name, schedule, job) {
+			name.should.equals('cleanup');
+			schedule.should.equals(settings.general.cleanupSchedule);
+			should.exist(job);
+		});
+
+		try {
+			youtransfer.initialize();
+			fail('Reached this breakpoint', 'should not have reached this breakpoint');
+		} catch(err) {
+			should.exist(err);
+			err.message.should.equals('error');
+			done();
+		}
+	});
+
+	it('should continue if an error occurs while initializing module', function() {
+		sandbox.stub(youtransfer.settings, "get", function (callback) {
 			callback(new Error('error'), null);
 		});
 
@@ -68,12 +246,14 @@ describe('YouTransfer module', function() {
 	});
 
 
-
 	// -------------------------------------------------------------------------------------- Testing storageFactory
 
 	it('should be possible to retrieve the default storage provider from the storage factory', function(done) {
 
-		var settings = {}
+		var settings = {
+			storage: {
+			}
+		}
 
 		sandbox.stub(youtransfer.settings, "get", function(callback) {
 			callback(null, settings);
@@ -90,7 +270,9 @@ describe('YouTransfer module', function() {
 	it('should be possible to retrieve the local storage provider from the storage factory', function(done) {
 
 		var settings = {
-				StorageLocation: 'local'
+				storage: {
+					location: 'local'
+				}
 			}
 
 		sandbox.stub(youtransfer.settings, "get", function(callback) {
@@ -99,8 +281,8 @@ describe('YouTransfer module', function() {
 
 		youtransfer.storageFactory.get(function(err, factory) {
 			should.not.exist(err);
-			should.exist(factory.options.StorageLocation);
-			factory.options.StorageLocation.should.equals(settings.StorageLocation);
+			should.exist(factory.options.storage.location);
+			factory.options.storage.location.should.equals(settings.storage.location);
 			done();
 		});
 
@@ -109,7 +291,9 @@ describe('YouTransfer module', function() {
 	it('should be possible to retrieve the Amazon S3 storage provider from the storage factory', function(done) {
 
 		var settings = {
-				StorageLocation: 's3'
+				storage: {
+					location: 's3'
+				}
 			}
 
 		sandbox.stub(youtransfer.settings, "get", function(callback) {
@@ -118,8 +302,8 @@ describe('YouTransfer module', function() {
 
 		youtransfer.storageFactory.get(function(err, factory) {
 			should.not.exist(err);
-			should.exist(factory.options.StorageLocation);
-			factory.options.StorageLocation.should.equals(settings.StorageLocation);
+			should.exist(factory.options.storage.location);
+			factory.options.storage.location.should.equals(settings.storage.location);
 			done();
 		});
 
@@ -128,7 +312,9 @@ describe('YouTransfer module', function() {
 	it('should continue with erronous callback if an error occurs while retrieving the storage provider from the storage factory', function(done) {
 
 		var settings = {
-			StorageLocation: 'unknown'
+			storage: {
+				location: 'unknown'
+			}
 		}
 
 		sandbox.stub(youtransfer.settings, "get", function(callback) {
@@ -139,6 +325,125 @@ describe('YouTransfer module', function() {
 			should.exist(err);
 			should.not.exist(factory);
 			err.message.should.equals('Storage provider not supported');
+			done();
+		});
+
+	});
+
+	// -------------------------------------------------------------------------------------- Testing authenticate
+
+	it('should be possible to authenticate the admin user', function(done) {
+
+		var username = 'a',
+			password = 'a',
+			settings = {
+				security: {
+					encryptionKey: 'MySecretKey',
+					rootAccount: 'a',
+					rootPassword: SHA256(password + 'MySecretKey').toString()
+				}
+			}
+
+		sandbox.stub(youtransfer.settings, "get", function(callback) {
+			callback(null, settings);
+		});
+
+		youtransfer.authenticate(username, password, function(err, user) {
+			should.not.exist(err);
+			should.exist(user);
+			user.username.should.equals(username);
+			done();
+		});
+
+	});
+
+	it('should be possible to authenticate the admin user even if the encryptionKey has not been set', function(done) {
+
+		var username = 'a',
+			password = 'a',
+			settings = {
+				security: {
+					rootAccount: 'a',
+					rootPassword: SHA256(password).toString()
+				}
+			}
+
+		sandbox.stub(youtransfer.settings, "get", function(callback) {
+			callback(null, settings);
+		});
+
+		youtransfer.authenticate(username, password, function(err, user) {
+			should.not.exist(err);
+			should.exist(user);
+			user.username.should.equals(username);
+			done();
+		});
+
+	});
+
+	it('should not be possible to authenticate the admin user without security settings', function(done) {
+
+		var username = 'a',
+			password = 'a',
+			settings = {}
+
+		sandbox.stub(youtransfer.settings, "get", function(callback) {
+			callback(null, settings);
+		});
+
+		youtransfer.authenticate(username, password, function(err, user) {
+			should.exist(err);
+			should.not.exist(user);
+			err.message.should.equals('Invalid username');
+			done();
+		});
+
+	});	
+	it('should not be possible to authenticate the admin user with a different username', function(done) {
+
+		var username = 'a',
+			password = 'a',
+			settings = {
+				security: {
+					encryptionKey: 'MySecretKey',
+					rootAccount: 'b',
+					rootPassword: SHA256(password + 'MySecretKey').toString()
+				}
+			}
+
+		sandbox.stub(youtransfer.settings, "get", function(callback) {
+			callback(null, settings);
+		});
+
+		youtransfer.authenticate(username, password, function(err, user) {
+			should.exist(err);
+			should.not.exist(user);
+			err.message.should.equals('Invalid username');
+			done();
+		});
+
+	});
+
+	it('should not be possible to authenticate the admin user with an incorrect password', function(done) {
+
+		var username = 'a',
+			password = 'a',
+			settings = {
+				security: {
+					encryptionKey: 'MySecretKey',
+					rootAccount: 'a',
+					rootPassword: SHA256('b' + 'MySecretKey').toString()
+				}
+			}
+
+		sandbox.stub(youtransfer.settings, "get", function(callback) {
+			callback(null, settings);
+		});
+
+		youtransfer.authenticate(username, password, function(err, user) {
+			should.exist(err);
+			should.not.exist(user);
+			err.message.should.equals('Invalid password');
 			done();
 		});
 
@@ -157,9 +462,14 @@ describe('YouTransfer module', function() {
 			},
 			bundle = 'bundle',
 			settings = {
-				localstoragepath: __dirname,
-				retentionUnit: 'seconds',
-				retention: 1,
+				general: {
+					baseUrl: ''
+				},
+				storage: {
+					localstoragepath: __dirname,
+					retentionUnit: 'seconds',
+					retention: 1
+				},
 				dropzone: {
 					maxFilesize: 2000
 				}
@@ -200,8 +510,13 @@ describe('YouTransfer module', function() {
 			},
 			bundle = 'bundle',
 			settings = {
-				localstoragepath: __dirname,
-				retentionUnit: 'seconds',
+				general: {
+					baseUrl: ''
+				},
+				storage: {
+					localstoragepath: __dirname,
+					retentionUnit: 'seconds'
+				},
 				dropzone: {
 					maxFilesize: 2000
 				}
@@ -243,9 +558,14 @@ describe('YouTransfer module', function() {
 			},
 			bundle = 'bundle',
 			settings = {
-				localstoragepath: __dirname,
-				retentionUnit: 'seconds',
-				retention: 1,
+				general: {
+					baseUrl: ''
+				},
+				storage: {
+					localstoragepath: __dirname,
+					retentionUnit: 'seconds',
+					retention: 1
+				},
 				dropzone: {
 					maxFilesize: 0.1
 				}
@@ -271,11 +591,16 @@ describe('YouTransfer module', function() {
 
 		var bundle = {
 				id: 'bundle'
-			}
+			},
 			settings = {
-				localstoragepath: __dirname,
-				retentionUnit: 'seconds',
-				retention: 1
+				general: {
+					baseUrl: ''
+				},
+				storage: {
+					localstoragepath: __dirname,
+					retentionUnit: 'seconds',
+					retention: 1
+				}
 			},
 			factory = {
 				bundle: function() {}
@@ -303,10 +628,15 @@ describe('YouTransfer module', function() {
 
 		var bundle = {
 				id: 'bundle'
-			}
+			},
 			settings = {
-				localstoragepath: __dirname,
-				retentionUnit: 'seconds',
+				general: {
+					baseUrl: ''
+				},
+				storage: {
+					localstoragepath: __dirname,
+					retentionUnit: 'seconds'
+				}
 			},
 			factory = {
 				bundle: function() {}
@@ -385,19 +715,254 @@ describe('YouTransfer module', function() {
 				purge: function() {}
 			};
 
-		sandbox.stub(youtransfer.storageFactory, "get", function(callback) {
+		sandbox.stub(youtransfer.storageFactory, 'get', function(callback) {
 			callback(null, factory);
 		});
-		sandbox.stub(factory, "purge", function(callback) {
-			callback(null, [ 'file' ]);
+
+		sandbox.stub(youtransfer.log, 'info', function(msg) {
+			should.exist(msg);
+			msg.should.equals('The scheduled cleanup job has removed 0 files.');
+			done();
 		});
 
-		youtransfer.cleanup(function(err, files) {
-			should.exist(files);
-			files[0].should.equals('file');
+		sandbox.stub(factory, 'purge', function(callback) {
+			callback(null, new Array());
+		});
+
+		youtransfer.cleanup();
+	});
+
+	it('should log an error when such occurs after triggering a purge', function(done) {
+
+		var factory = {
+				purge: function() {}
+			};
+
+		sandbox.stub(youtransfer.storageFactory, 'get', function(callback) {
+			callback(null, factory);
+		});
+
+		sandbox.stub(youtransfer.log, 'error', function(msg) {
+			should.exist(msg);
+			msg.should.equals('An error occurred while removing expired files: error');
+			done();
+		});
+
+		sandbox.stub(factory, 'purge', function(callback) {
+			callback(new Error('error'), new Array());
+		});
+
+		youtransfer.cleanup();
+	});
+
+	// -------------------------------------------------------------------------------------- Testing templates.get
+
+	it('should be possible to get template source', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'get', function (callback) {
+			callback(null, {
+				state: {
+					finalised: false
+				}
+			});
+		});
+
+		sandbox.stub(fs, 'readFile', function (file, encoding, callback) {
+			should.exist(file);
+			file.should.equals('./src/templates/myTemplate')
+			callback(null, 'template');
+		});
+
+		youtransfer.templates.get('myTemplate', function(err, data) {
+			should.not.exist(err);
+			should.exist(data);
+			data.should.equals('template');
 			done();
 		});
 	});
+
+	it('should provide feedback when trying to get template source if settings are finalised', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'get', function (callback) {
+			callback(null, {
+				state: {
+					finalised: true
+				}
+			});
+		});
+
+		youtransfer.templates.get('myTemplate', function(err, data) {
+			should.exist(err);
+			err.message.should.equals('SETTINGS_FINALISED');
+			done();
+		});
+
+	});	
+
+	it('should provide feedback if an error occures while trying to read template source', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'get', function (callback) {
+			callback(null, {
+				state: {
+					finalised: false
+				}
+			});
+		});
+
+		sandbox.stub(fs, 'readFile', function (file, encoding, callback) {
+			should.exist(file);
+			file.should.equals('./src/templates/myTemplate')
+			callback(new Error('error'));
+		});
+
+		youtransfer.templates.get('myTemplate', function(err, data) {
+			should.exist(err);
+			err.message.should.equals('error');
+			done();
+		});
+
+	});	
+
+	it('should provide feedback if template does not exist', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'get', function (callback) {
+			callback(null, {
+				state: {
+					finalised: false
+				}
+			});
+		});
+
+		youtransfer.templates.get(null, function(err, data) {
+			should.exist(err);
+			err.message.should.equals('ENOENT');
+			done();
+		});
+
+	});		
+
+	it('should provide feedback if an error occurs while retrieving settings', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'get', function (callback) {
+			callback(new Error('error'));
+		});
+
+		youtransfer.templates.get(null, function(err, data) {
+			should.exist(err);
+			err.message.should.equals('error');
+			done();
+		});
+
+	});		
+
+	// -------------------------------------------------------------------------------------- Testing templates.push
+
+	it('should be possible to set template source', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'push', function (callback) {
+			callback(null, {
+				state: {
+					finalised: false
+				}
+			});
+		});
+
+		sandbox.stub(fs, 'writeFile', function (file, data, encoding, callback) {
+			should.exist(file);
+			should.exist(data);
+			should.exist(encoding);
+
+			file.should.equals('./src/templates/myTemplate')
+			data.should.equals('template');
+			encoding.should.equals('utf8');
+			callback();
+		});
+
+		youtransfer.templates.push('myTemplate', 'template', function(err) {
+			should.not.exist(err);
+			done();
+		});
+	});
+
+	it('should provide feedback when trying to set template source if settings are finalised', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'get', function (callback) {
+			callback(null, {
+				state: {
+					finalised: true
+				}
+			});
+		});
+
+		youtransfer.templates.push('myTemplate', 'template', function(err) {
+			should.exist(err);
+			err.message.should.equals('SETTINGS_FINALISED');
+			done();
+		});
+
+	});	
+
+	it('should provide feedback if an error occures while trying to write template source', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'get', function (callback) {
+			callback(null, {
+				state: {
+					finalised: false
+				}
+			});
+		});
+
+		sandbox.stub(fs, 'writeFile', function (file, data, encoding, callback) {
+			should.exist(file);
+			should.exist(data);
+			should.exist(encoding);
+
+			file.should.equals('./src/templates/myTemplate')
+			data.should.equals('template');
+			encoding.should.equals('utf8');
+			callback(new Error('error'));
+		});
+
+		youtransfer.templates.push('myTemplate', 'template', function(err, data) {
+			should.exist(err);
+			err.message.should.equals('error');
+			done();
+		});
+
+	});	
+
+	it('should provide feedback if template does not exist', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'get', function (callback) {
+			callback(null, {
+				state: {
+					finalised: false
+				}
+			});
+		});
+
+		youtransfer.templates.push(null, 'template', function(err, data) {
+			should.exist(err);
+			err.message.should.equals('ENOENT');
+			done();
+		});
+
+	});		
+
+	it('should provide feedback if an error occurs while retrieving settings', function(done) {
+
+		sandbox.stub(youtransfer.settings, 'get', function (callback) {
+			callback(new Error('error'));
+		});
+
+		youtransfer.templates.push(null, 'template', function(err, data) {
+			should.exist(err);
+			err.message.should.equals('error');
+			done();
+		});
+
+	});		
+
 
 	// -------------------------------------------------------------------------------------- Testing send
 
@@ -418,7 +983,9 @@ describe('YouTransfer module', function() {
 				renderTemplate: function() {}
 			},
 			settings = {
-				baseUrl: '',
+				general: {
+					baseUrl: ''
+				},
 				email: {
 					service: 'gmail',
 					transporter: 'smtp',
@@ -455,7 +1022,7 @@ describe('YouTransfer module', function() {
 
 		sandbox.stub(res, 'renderTemplate', function(template, fields, callback) {
 			fields.bundle.id.should.equals(req.params.bundle);
-			fields.bundle.link.should.equals(settings.baseUrl + '/bundle/' + req.params.bundle);
+			fields.bundle.link.should.equals(settings.general.baseUrl + '/bundle/' + req.params.bundle);
 			fields.files[0].id.should.equals('file');
 			callback(null, 'body');
 		});
@@ -490,6 +1057,9 @@ describe('YouTransfer module', function() {
 				renderTemplate: function() {}
 			},
 			settings = {
+				general: {
+					baseUrl: ''
+				},
 				email: {
 					service: '',
 					transporter: 'smtp',
@@ -525,7 +1095,7 @@ describe('YouTransfer module', function() {
 
 		sandbox.stub(res, 'renderTemplate', function(template, fields, callback) {
 			fields.bundle.id.should.equals(req.params.bundle);
-			fields.bundle.link.should.equals(settings.baseUrl + '/bundle/' + req.params.bundle);
+			fields.bundle.link.should.equals(settings.general.baseUrl + '/bundle/' + req.params.bundle);
 			fields.files[0].id.should.equals('file');
 			callback(null, 'body');
 		});
@@ -559,6 +1129,9 @@ describe('YouTransfer module', function() {
 				renderTemplate: function() {}
 			},
 			settings = {
+				general: {
+					baseUrl: ''
+				},
 				email: {
 					transporter: 'sendmail',
 					sender: 'sender',
@@ -593,7 +1166,7 @@ describe('YouTransfer module', function() {
 
 		sandbox.stub(res, 'renderTemplate', function(template, fields, callback) {
 			fields.bundle.id.should.equals(req.params.bundle);
-			fields.bundle.link.should.equals(settings.baseUrl + '/bundle/' + req.params.bundle);
+			fields.bundle.link.should.equals(settings.general.baseUrl + '/bundle/' + req.params.bundle);
 			fields.files[0].id.should.equals('file');
 			callback(null, 'body');
 		});
@@ -627,6 +1200,9 @@ describe('YouTransfer module', function() {
 				renderTemplate: function() {}
 			},
 			settings = {
+				general: {
+					baseUrl: ''
+				},
 				email: {
 					transporter: 'ses',
 					sender: 'sender',
@@ -661,7 +1237,7 @@ describe('YouTransfer module', function() {
 
 		sandbox.stub(res, 'renderTemplate', function(template, fields, callback) {
 			fields.bundle.id.should.equals(req.params.bundle);
-			fields.bundle.link.should.equals(settings.baseUrl + '/bundle/' + req.params.bundle);
+			fields.bundle.link.should.equals(settings.general.baseUrl + '/bundle/' + req.params.bundle);
 			fields.files[0].id.should.equals('file');
 			callback(null, 'body');
 		});
@@ -695,6 +1271,9 @@ describe('YouTransfer module', function() {
 				renderTemplate: function() {}
 			},
 			settings = {
+				general: {
+					baseUrl: ''
+				},
 				email: {
 					transporter: 'notsupported',
 					sender: 'sender',
@@ -729,7 +1308,7 @@ describe('YouTransfer module', function() {
 
 		sandbox.stub(res, 'renderTemplate', function(template, fields, callback) {
 			fields.bundle.id.should.equals(req.params.bundle);
-			fields.bundle.link.should.equals(settings.baseUrl + '/bundle/' + req.params.bundle);
+			fields.bundle.link.should.equals(settings.general.baseUrl + '/bundle/' + req.params.bundle);
 			fields.files[0].id.should.equals('file');
 			callback(null, 'body');
 		});
@@ -772,7 +1351,11 @@ describe('YouTransfer module', function() {
 				params: {}
 			},
 			res = {},
-			settings = {}
+			settings = {
+				general: {
+					baseUrl: ''
+				}
+			}				
 
 		sandbox.stub(youtransfer.settings, "get", function(callback) {
 			callback(null, settings);
@@ -804,6 +1387,9 @@ describe('YouTransfer module', function() {
 				renderTemplate: function() {}
 			},
 			settings = {
+				general: {
+					baseUrl: ''
+				},
 				email: {
 					transporter: 'notsupported',
 					sender: 'sender',
@@ -851,6 +1437,9 @@ describe('YouTransfer module', function() {
 				renderTemplate: function() {}
 			},
 			settings = {
+				general: {
+					baseUrl: ''
+				},
 				email: {
 					transporter: 'notsupported',
 					sender: 'sender',

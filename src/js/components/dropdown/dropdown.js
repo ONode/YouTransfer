@@ -3,33 +3,36 @@
 
 // ------------------------------------------------------------------------------------------ Component Dependencies
 
-var $ = require('jquery');
+// Unfortunately, Bootstrap requires global jQuery object
+var $ = window.jQuery = require('jquery');
+var Bootstrap = require('bootstrap');
 
 // ------------------------------------------------------------------------------------------ Component Variables
 
-var COMPONENT_ATTR = 'data-js-only';
+var COMPONENT_ATTR = 'data-dropdown';
 var COMPONENT_SELECTOR = '[' + COMPONENT_ATTR + ']';
+var DROPDOWN_SELECTOR = 'dropdown';
 
 // ------------------------------------------------------------------------------------------ Component Definition
 
-function JSOnly(element) {
+function Dropdown(element) {
 	var component = this;
 	component.$element = $(element);
-	element.removeAttribute(COMPONENT_ATTR);
+	component.$element.removeClass(DROPDOWN_SELECTOR);
 }
 
 // ------------------------------------------------------------------------------------------ Component Initialization
 
 $(COMPONENT_SELECTOR).each(function(index, element) {
-	return new JSOnly(element);
+	return new Dropdown(element);
 });
 
 $(document).on('xhr.loaded', function() {
 	$(COMPONENT_SELECTOR).each(function(index, element) {
-		return new JSOnly(element);
+		return new Dropdown(element);
 	});
 });
 
 // ------------------------------------------------------------------------------------------ Component Exposure
 
-module.exports = JSOnly;
+module.exports = Dropdown;

@@ -1,3 +1,4 @@
+'use strict';
 
 // ------------------------------------------------------------------------------------------ Test Dependencies
 
@@ -55,7 +56,7 @@ describe('YouTransfer Middleware module', function() {
 			done();
 		});
 	});
-	
+
 	// -------------------------------------------------------------------------------------- Testing req.isXmlHttpRequest
 
 	it('should add "isXmlHttpRequest" property to response object with value "true"', function(done) {
@@ -138,7 +139,9 @@ describe('YouTransfer Middleware module', function() {
 	it('should implement "res.renderTemplate" method with valid host', function(done) {
 		var name = 'MyTemplate',
 			settings = {
-				baseUrl: 'http://myhost'
+				general: {
+					baseUrl: 'http://myhost'
+				}
 			},
 			res = {},
 			req = {
@@ -153,7 +156,9 @@ describe('YouTransfer Middleware module', function() {
 				socket: {}
 			},
 			context = {
-				baseUrl: 'http://myhost',
+				general: {
+					baseUrl: 'http://myhost'
+				},
 				host: 'http://myhost',
 				invalidHost: false,
 				isXMLHttpRequest: false
@@ -171,7 +176,7 @@ describe('YouTransfer Middleware module', function() {
 
 		sandbox.stub(nunjucks, 'render', function (template, variables, callback) {
 			template.should.equals(name);
-			variables.baseUrl.should.equals(context.baseUrl);
+			variables.general.baseUrl.should.equals(context.general.baseUrl);
 			variables.host.should.equals(context.host);
 			variables.invalidHost.should.equals(context.invalidHost);
 			variables.isXMLHttpRequest.should.equals(context.isXMLHttpRequest);
@@ -189,7 +194,9 @@ describe('YouTransfer Middleware module', function() {
 	it('should implement "res.renderTemplate" method with invalid host', function(done) {
 		var name = 'MyTemplate',
 			settings = {
-				baseUrl: 'http://myhost'
+				general: {
+					baseUrl: 'http://myhost'
+				}
 			},
 			res = {},
 			req = {
@@ -204,7 +211,9 @@ describe('YouTransfer Middleware module', function() {
 				socket: {}
 			},
 			context = {
-				baseUrl: 'http://myhost',
+				general: {
+					baseUrl: 'http://myhost'
+				},
 				host: 'http://anotherhost',
 				invalidHost: true,				
 				isXMLHttpRequest: false
@@ -222,7 +231,7 @@ describe('YouTransfer Middleware module', function() {
 
 		sandbox.stub(nunjucks, 'render', function (template, variables, callback) {
 			template.should.equals(name);
-			variables.baseUrl.should.equals(context.baseUrl);
+			variables.general.baseUrl.should.equals(context.general.baseUrl);
 			variables.host.should.equals(context.host);
 			variables.invalidHost.should.equals(context.invalidHost);
 			variables.isXMLHttpRequest.should.equals(context.isXMLHttpRequest);
@@ -240,7 +249,9 @@ describe('YouTransfer Middleware module', function() {
 	it('should implement "res.renderTemplate" method with invalid host using SSL', function(done) {
 		var name = 'MyTemplate',
 			settings = {
-				baseUrl: 'https://myhost'
+				general: {
+					baseUrl: 'https://myhost'
+				}
 			},
 			res = {},
 			req = {
@@ -257,7 +268,9 @@ describe('YouTransfer Middleware module', function() {
 				}
 			},
 			context = {
-				baseUrl: 'https://myhost',
+				general: {
+					baseUrl: 'https://myhost'
+				},
 				host: 'https://anotherhost',
 				invalidHost: true,				
 				isXMLHttpRequest: false
@@ -275,7 +288,7 @@ describe('YouTransfer Middleware module', function() {
 
 		sandbox.stub(nunjucks, 'render', function (template, variables, callback) {
 			template.should.equals(name);
-			variables.baseUrl.should.equals(context.baseUrl);
+			variables.general.baseUrl.should.equals(context.general.baseUrl);
 			variables.host.should.equals(context.host);
 			variables.invalidHost.should.equals(context.invalidHost);
 			variables.isXMLHttpRequest.should.equals(context.isXMLHttpRequest);
@@ -398,7 +411,9 @@ describe('YouTransfer Middleware module', function() {
 				content: 'this is my template'
 			},
 			settings = {
-				baseUrl: 'http://myhost'
+				general: {
+					baseUrl: 'http://myhost'
+				}
 			},
 			res = {
 				setHeader: function() {},
@@ -440,8 +455,8 @@ describe('YouTransfer Middleware module', function() {
 
 		sandbox.stub(nunjucks, 'render', function (name, context, callback) {
 			context.invalidHost.should.equals(false);
-			context.baseUrl.should.equals(settings.baseUrl);
-			context.host.should.equals(settings.baseUrl);
+			context.general.baseUrl.should.equals(settings.general.baseUrl);
+			context.host.should.equals(settings.general.baseUrl);
 			context.isXMLHttpRequest.should.equals(false);
 			return template.content;
 		});
@@ -468,7 +483,9 @@ describe('YouTransfer Middleware module', function() {
 				content: 'this is my template'
 			},
 			settings = {
-				baseUrl: 'https://myhost'
+				general: {
+					baseUrl: 'https://myhost'
+				}
 			},
 			res = {
 				setHeader: function() {},
@@ -512,8 +529,8 @@ describe('YouTransfer Middleware module', function() {
 
 		sandbox.stub(nunjucks, 'render', function (name, context, callback) {
 			context.invalidHost.should.equals(false);
-			context.baseUrl.should.equals(settings.baseUrl);
-			context.host.should.equals(settings.baseUrl);
+			context.general.baseUrl.should.equals(settings.general.baseUrl);
+			context.host.should.equals(settings.general.baseUrl);
 			context.isXMLHttpRequest.should.equals(false);
 			return template.content;
 		});
@@ -540,7 +557,9 @@ describe('YouTransfer Middleware module', function() {
 				content: 'this is my template'
 			},
 			settings = {
-				baseUrl: 'http://myhost'
+				general: {
+					baseUrl: 'http://myhost'
+				}
 			},
 			res = {
 				setHeader: function() {},
@@ -582,7 +601,7 @@ describe('YouTransfer Middleware module', function() {
 
 		sandbox.stub(nunjucks, 'render', function (name, context, callback) {
 			context.invalidHost.should.equals(true);
-			context.baseUrl.should.equals(settings.baseUrl);
+			context.general.baseUrl.should.equals(settings.general.baseUrl);
 			context.host.should.equals('http://anotherhost');
 			context.isXMLHttpRequest.should.equals(false);
 			return template.content;
@@ -855,7 +874,14 @@ describe('YouTransfer Middleware module', function() {
 					exist: function() {}
 				},
 				headers: []
+			},
+			viewEngine = {
+				getTemplate: function() {}
 			};
+
+		sandbox.stub(nunjucks, 'configure', function (files, options) {
+			return viewEngine;
+		});
 
 		middleware(req, res, function() {
 			should.exist(res.process);
@@ -885,6 +911,7 @@ describe('YouTransfer Middleware module', function() {
 				json: function() {}
 			},
 			req = {
+				params: {},
 				errors: {
 					get: function() {},
 					exist: function() {}
@@ -892,17 +919,29 @@ describe('YouTransfer Middleware module', function() {
 				headers: {
 					'x-requested-with': 'XMLHttpRequest'
 				}
+			},
+			viewEngine = {
+				getTemplate: function() {}
 			};
+
+		sandbox.stub(nunjucks, 'configure', function (files, options) {
+			return viewEngine;
+		});
 
 		middleware(req, res, function() {
 			should.exist(res.process);
 
 			sandbox.stub(req.errors, 'exist').returns(true);
 
+			sandbox.stub(res, 'renderTemplate', function (template, variables, callback) {
+				callback(null, 'my template content');
+			});
+
 			sandbox.stub(res, 'json', function (variables) {
 				variables.success.should.equals(context.success);
 				variables.isPostback.should.equals(context.isPostback);
 				variables.errors.should.equals(context.errors);
+				variables.output.should.equals('my template content');
 			});
 
 			res.process(name, context, done);
@@ -927,25 +966,37 @@ describe('YouTransfer Middleware module', function() {
 				headers: {
 					'x-requested-with': 'XMLHttpRequest'
 				}
+			},
+			viewEngine = {
+				getTemplate: function() {}
 			};
+
+		sandbox.stub(nunjucks, 'configure', function (files, options) {
+			return viewEngine;
+		});
 
 		middleware(req, res, function() {
 			should.exist(res.process);
 
 			sandbox.stub(req.errors, 'exist').returns(true);
 
+			sandbox.stub(res, 'renderTemplate', function (template, variables, callback) {
+				callback(null, 'my template content');
+			});
+
 			sandbox.stub(res, 'json', function (variables) {
 				variables.success.should.equals(context.success);
 				variables.isPostback.should.equals(context.isPostback);
 				variables.errors.should.equals(context.errors);
+				variables.output.should.equals('my template content');
+				done();
 			});
 
 			res.process(name, context);
-			done();
 		});
 	});	
 
-	it('should implement "res.process" method which does not return any result if the response stream has already finished', function() {
+	it('should implement "res.process" method which does not return any result if the response stream has already finished', function(done) {
 		var name = 'MyTemplate',
 			context = {
 				success: true,
@@ -964,7 +1015,14 @@ describe('YouTransfer Middleware module', function() {
 				headers: {
 					'x-requested-with': 'XMLHttpRequest'
 				}
+			},
+			viewEngine = {
+				getTemplate: function() {}
 			};
+
+		sandbox.stub(nunjucks, 'configure', function (files, options) {
+			return viewEngine;
+		});
 
 		middleware(req, res, function() {
 			should.exist(res.process);
@@ -975,6 +1033,8 @@ describe('YouTransfer Middleware module', function() {
 			res.process(name, context, null);
 
 			resMock.verify();
+			done();
 		});
 	});		
+
 });

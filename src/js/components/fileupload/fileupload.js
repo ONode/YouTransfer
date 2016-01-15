@@ -1,3 +1,4 @@
+/*jslint browser: true*/
 'use strict';
 
 // ------------------------------------------------------------------------------------------ Component Dependencies
@@ -23,6 +24,7 @@ var DROPZONE_PREVIEW_PROGRESS_SELECTOR = '.dz-preview-progress';
 var DROPZONE_UPLOAD_COMPLETE_CLASS = 'dz-upload-complete';
 var DROPZONE_UPLOAD_COMPLETE_SELECTOR = '.' + DROPZONE_UPLOAD_COMPLETE_CLASS;
 var DROPZONE_COMPLETED_CONTAINER_SELECTOR = '.dz-completed-container';
+var DROPZONE_UPLOAD_CONATINER_SELECTOR = '.dz-upload-container';
 
 var DROPZONE_ACTIONS_ADD_SELECTOR = '.dz-action-add';
 
@@ -64,15 +66,21 @@ function Fileupload(element) {
 		component.dropzone = new Dropzone(element, options);
 
 		if(!settings.dropzone.forceFallback) {
-			component.dropzone.on("addedfile", function() {
-				component.$element.addClass("dz-files-added");
+			component.dropzone.on('addedfile', function() {
+				component.$element.addClass('dz-files-added');
+
+				var container = $(DROPZONE_UPLOAD_CONATINER_SELECTOR)
+				if(container.is('.col-md-12')) {
+					container.removeClass('col-md-12')
+							 .addClass('col-md-6');
+				}
 			});
 
-			component.dropzone.on("sending", function(file, xhr, formData) {
-				formData.append("bundle", component.bundle.id);
+			component.dropzone.on('sending', function(file, xhr, formData) {
+				formData.append('bundle', component.bundle.id);
 			});
 
-			component.dropzone.on("complete", function(result) {
+			component.dropzone.on('complete', function(result) {
 				$(result.previewElement).find(DROPZONE_PREVIEW_DESCRIPTION_SELECTOR).removeClass('col-md-7');
 				$(result.previewElement).find(DROPZONE_PREVIEW_PROGRESS_SELECTOR).hide();
 				if(result.xhr) {
@@ -110,8 +118,8 @@ function Fileupload(element) {
 				component.dropzone.disable();
 			});
 
-			component.dropzone.on("reset", function() {
-				component.$element.removeClass("dz-files-added");
+			component.dropzone.on('reset', function() {
+				component.$element.removeClass('dz-files-added');
 			});
 		}
 	});
